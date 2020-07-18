@@ -8,11 +8,11 @@ exports.deleteOne = (Model) =>
 
     const doc = await Model.findById(req.params.id);
 
-    await doc.remove();
-
     if (!doc) {
       return next(new AppError('No document found with that ID', 404));
     }
+
+    await doc.remove();
 
     res.status(204).json({
       status: 'success',
