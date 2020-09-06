@@ -1,7 +1,6 @@
 const express = require('express');
 const userController = require('../controllers/userController');
 const authController = require('../controllers/authController');
-const app = require('../app');
 
 const router = express.Router();
 
@@ -16,12 +15,18 @@ router.post('/logoutAll', authController.logoutAll);
 router
   .route('/me')
   .get(userController.getMe)
-  .patch(
-    userController.uploadUserPhoto,
-    userController.resizeUserPhoto,
-    userController.UpdateMe
-  )
+  .patch(userController.updateMe)
   .delete(userController.deleteMe);
+
+router
+  .route('/avatar')
+  .get(userController.getAvatar)
+  .post(
+    userController.initiateUpload,
+    userController.resizeAvatar,
+    userController.uploadAvatar
+  )
+  .delete(userController.deleteAvatar);
 
 router.use(authController.restrictTo('admin'));
 
@@ -35,5 +40,15 @@ router
   .get(userController.getUser)
   .patch(userController.updateUser)
   .delete(userController.deleteUser);
+
+router
+  .route('/avatar/:id')
+  .get(userController.getAvatar)
+  .post(
+    userController.initiateUpload,
+    userController.resizeAvatar,
+    userController.uploadAvatar
+  )
+  .delete(userController.deleteAvatar);
 
 module.exports = router;

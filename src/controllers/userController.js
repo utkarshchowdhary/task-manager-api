@@ -1,10 +1,9 @@
-const fs = require('fs');
-const { promisify } = require('util');
 const multer = require('multer');
 const sharp = require('sharp');
 const factory = require('./handlerFactory');
 const User = require('../models/userModel');
 const catchAsync = require('../utils/catchAsync');
+const AppError = require('../utils/appError');
 const { sendCancelationEmail } = require('../utils/email');
 
 const multerStorage = multer.memoryStorage();
@@ -25,23 +24,77 @@ const upload = multer({
   fileFilter: multerFilter,
 });
 
-exports.uploadUserPhoto = upload.single('avatar');
+exports.initiateUpload = upload.single('avatar');
 
-exports.resizeUserPhoto = catchAsync(async (req, res, next) => {
+exports.resizeAvatar = catchAsync(async (req, res, next) => {
   if (!req.file) return next();
 
-  req.file.filename = `user-${req.user._id}-${Date.now()}.jpeg`;
-
-  await sharp(req.file.buffer)
-    .resize(500, 500)
-    .toFormat('jpeg')
-    .jpeg({ quality: 90 })
-    .toFile(`src/public/img/users/${req.file.filename}`);
+  const buffer = await sharp(req.file.buffer).resize(500, 500).png().toBuffer();
+  req.buffer = buffer;
 
   next();
 });
 
-exports.UpdateMe = catchAsync(async (req, res, next) => {
+exports.uploadAvatar = catchAsync(async (req, res, next) => {
+  if (!req.file) {
+    return next(new AppError('Please select an image to upload', 400));
+  }
+  if (req.params.id) {
+    const user = await User.findByIdAndUpdate(
+      req.params.id,
+      { avatar: req.buffer },
+      {
+        new: true,
+        runValidators: true,
+      }
+    );
+    if (!user) {
+      return next(new AppError('No user found with that ID', 404));
+    }
+  } else {
+    req.user.avatar = req.buffer;
+    await req.user.save();
+  }
+  res.status(200).json({
+    status: 'success',
+  });
+});
+
+exports.getAvatar = catchAsync(async (req, res, next) => {
+  if (req.params.id) {
+    const user = await User.findById(req.params.id);
+    if (!user || !user.avatar) {
+      return next(new AppError('No user/avatar found with that ID', 404));
+    }
+    res.set('Content-Type', 'image/png');
+    res.send(user.avatar);
+  } else {
+    if (!req.user.avatar) {
+      return next(new AppError('No avatar associated with the user', 404));
+    }
+    res.set('Content-Type', 'image/png');
+    res.send(req.user.avatar);
+  }
+});
+
+exports.deleteAvatar = catchAsync(async (req, res, next) => {
+  if (req.params.id) {
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      return next(new AppError('No user found with that ID', 404));
+    }
+    user.avatar = undefined;
+    await user.save();
+  } else {
+    req.user.avatar = undefined;
+    await req.user.save();
+  }
+  res.status(200).json({
+    status: 'success',
+  });
+});
+
+exports.updateMe = catchAsync(async (req, res, next) => {
   const updates = Object.keys(req.body);
   const allowedUpdates = ['name', 'email', 'password', 'age'];
 
@@ -54,13 +107,6 @@ exports.UpdateMe = catchAsync(async (req, res, next) => {
   }
 
   updates.forEach((update) => (req.user[update] = req.body[update]));
-
-  if (req.file) {
-    if (req.user.avatar != 'default.jpg') {
-      await promisify(fs.unlink)(`src/public/img/users/${req.user.avatar}`);
-    }
-    req.user.avatar = req.file.filename;
-  }
 
   await req.user.save();
 
