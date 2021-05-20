@@ -1,14 +1,13 @@
-const mongoose = require('mongoose');
-const validator = require('validator');
-const bcrypt = require('bcryptjs');
-const Task = require('./taskModel');
+const mongoose = require('mongoose')
+const validator = require('validator')
+const bcrypt = require('bcryptjs')
 
 const userSchema = new mongoose.Schema(
   {
     name: {
       type: String,
       trim: true,
-      required: [true, 'Please provide your name!'],
+      required: [true, 'Please provide your name!']
     },
     email: {
       type: String,
@@ -16,7 +15,7 @@ const userSchema = new mongoose.Schema(
       unique: true,
       trim: true,
       lowercase: true,
-      validate: [validator.isEmail, 'Please provide a valid email'],
+      validate: [validator.isEmail, 'Please provide a valid email']
     },
     password: {
       type: String,
@@ -25,107 +24,109 @@ const userSchema = new mongoose.Schema(
       select: false,
       validate: {
         validator: function (val) {
-          return !val.toLowerCase().includes('password');
+          return !val.toLowerCase().includes('password')
         },
-        message: 'Password cannot contain "password"!',
-      },
+        message: 'Password cannot contain "password"!'
+      }
     },
     age: {
       type: Number,
       default: 0,
       validate: {
         validator: function (val) {
-          return val >= 0;
+          return val >= 0
         },
-        message: 'Age must be a positive number!',
-      },
+        message: 'Age must be a positive number!'
+      }
     },
     avatar: {
       type: Buffer,
+      select: false
     },
     role: {
       type: String,
       enum: {
         values: ['user', 'admin'],
-        message: 'Role is either: user or admin',
+        message: 'Role is either: user or admin'
       },
-      default: 'user',
+      default: 'user'
     },
     tokens: [
       {
         token: {
           type: String,
-          required: true,
-        },
-      },
+          required: true
+        }
+      }
     ],
-    passwordChangedAt: { type: Date },
+    passwordChangedAt: { type: Date }
   },
   {
     timestamps: true,
-    toJSON: { virtuals: true },
-    toObject: { virtuals: true },
+    toJSON: {
+      virtuals: true,
+      versionKey: false,
+      transform: (doc, ret) => {
+        delete ret._id
+        delete ret.password
+        delete ret.tokens
+        delete ret.avatar
+      }
+    },
+    toObject: {
+      virtuals: true,
+      versionKey: false,
+      transform: (doc, ret) => {
+        delete ret._id
+        delete ret.password
+        delete ret.tokens
+        delete ret.avatar
+      }
+    }
   }
-);
+)
 
 // Virtual populate
 userSchema.virtual('tasks', {
   ref: 'Task',
   localField: '_id',
-  foreignField: 'owner',
-});
-
-userSchema.methods.toJSON = function () {
-  const obj = this.toObject();
-
-  delete obj.password;
-  delete obj.tokens;
-  delete obj.avatar;
-
-  return obj;
-};
+  foreignField: 'owner'
+})
 
 // Hash the plain text password before saving
 userSchema.pre('save', async function (next) {
-  if (!this.isModified('password')) return next();
+  if (!this.isModified('password')) return next()
 
-  this.password = await bcrypt.hash(this.password, 12);
+  this.password = await bcrypt.hash(this.password, 12)
 
-  next();
-});
+  next()
+})
 
 userSchema.pre('save', function (next) {
-  if (!this.isModified('password') || this.isNew) return next();
+  if (!this.isModified('password') || this.isNew) return next()
 
-  this.passwordChangedAt = Date.now();
-  next();
-});
+  this.passwordChangedAt = Date.now()
+  next()
+})
 
-userSchema.methods.correctPassword = async function (
-  candidatePassword,
-  userPassword
-) {
-  return await bcrypt.compare(candidatePassword, userPassword);
-};
+// Instance Method
+userSchema.methods.correctPassword = async function (candidatePassword) {
+  return await bcrypt.compare(candidatePassword, this.password)
+}
 
-userSchema.methods.changedPasswordAfter = function (JWTTimestamp) {
+userSchema.methods.changedPasswordAfter = function (JWTIssuedAt) {
   if (this.passwordChangedAt) {
-    const changedTimestamp = parseInt(
-      this.passwordChangedAt.getTime() / 1000,
-      10
-    );
-
-    return JWTTimestamp < changedTimestamp;
+    return JWTIssuedAt < parseInt(this.passwordChangedAt.getTime() / 1000)
   }
-  return false;
-};
+  return false
+}
 
 // Delete user tasks when user is removed
 userSchema.pre('remove', async function (next) {
-  await Task.deleteMany({ owner: this._id });
-  next();
-});
+  await this.model('Task').deleteMany({ owner: this.id })
+  next()
+})
 
-const User = mongoose.model('User', userSchema);
+const User = mongoose.model('User', userSchema)
 
-module.exports = User;
+module.exports = User
