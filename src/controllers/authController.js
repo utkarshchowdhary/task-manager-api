@@ -16,7 +16,7 @@ const createSendToken = async (user, statusCode, res) => {
 
   user.tokens.push({ token })
 
-  await user.save()
+  await user.save({ validateBeforeSave: false })
 
   if (statusCode === 201) {
     sendWelcomeEmail(user.email, user.name)
@@ -96,7 +96,7 @@ exports.protect = asyncHandler(async (req, res, next) => {
 exports.logout = asyncHandler(async (req, res, next) => {
   req.user.tokens = req.user.tokens.filter((token) => token.token !== req.token)
 
-  await req.user.save()
+  await req.user.save({ validateBeforeSave: false })
 
   res.status(200).json({ status: 'success' })
 })
@@ -104,7 +104,7 @@ exports.logout = asyncHandler(async (req, res, next) => {
 exports.logoutAll = asyncHandler(async (req, res, next) => {
   req.user.tokens = []
 
-  await req.user.save()
+  await req.user.save({ validateBeforeSave: false })
 
   res.status(200).json({ status: 'success' })
 })

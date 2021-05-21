@@ -29,8 +29,10 @@ exports.initiateUpload = upload.single('avatar')
 exports.resizeAvatar = asyncHandler(async (req, res, next) => {
   if (!req.file) return next()
 
-  const buffer = await sharp(req.file.buffer).resize(500, 500).png().toBuffer()
-  req.buffer = buffer
+  req.file.buffer = await sharp(req.file.buffer)
+    .resize(500, 500)
+    .png()
+    .toBuffer()
 
   next()
 })
@@ -42,7 +44,7 @@ exports.uploadAvatar = asyncHandler(async (req, res, next) => {
   if (req.params.id) {
     const user = await User.findByIdAndUpdate(
       req.params.id,
-      { avatar: req.buffer },
+      { avatar: req.file.buffer },
       {
         new: true,
         runValidators: true
@@ -52,7 +54,7 @@ exports.uploadAvatar = asyncHandler(async (req, res, next) => {
       return next(new AppError('No user found with that ID', 404))
     }
   } else {
-    req.user.avatar = req.buffer
+    req.user.avatar = req.file.buffer
     await req.user.save()
   }
   res.status(200).json({
