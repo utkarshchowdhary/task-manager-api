@@ -40,8 +40,7 @@ const userSchema = new mongoose.Schema(
       }
     },
     avatar: {
-      type: Buffer,
-      select: false
+      type: Buffer
     },
     role: {
       type: String,
