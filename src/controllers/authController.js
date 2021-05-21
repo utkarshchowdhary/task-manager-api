@@ -32,7 +32,7 @@ const createSendToken = async (user, statusCode, res) => {
 exports.signup = asyncHandler(async (req, res, next) => {
   const user = await User.create(req.body)
 
-  createSendToken(user, 201, res)
+  await createSendToken(user, 201, res)
 })
 
 exports.login = asyncHandler(async (req, res, next) => {
@@ -48,7 +48,7 @@ exports.login = asyncHandler(async (req, res, next) => {
     return next(new AppError('Incorrect email or password', 401))
   }
 
-  createSendToken(user, 200, res)
+  await createSendToken(user, 200, res)
 })
 
 exports.protect = asyncHandler(async (req, res, next) => {
